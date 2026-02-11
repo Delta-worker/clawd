@@ -4,55 +4,23 @@
 
 With the subagent team structure, the heartbeat now focuses on team coordination:
 
-### 1. Check Team Status
+### 1. Check Team Status & Spawn Needed Subagents
 ```bash
 # List all sessions
 sessions_list
 ```
 
-**If any subagent is not running:**
-- **Delta-PM** (Product Manager) - Check for new Feature Requests, backlog grooming, documentation tasks
-- **Delta-TL** (Technical Lead) - Check for development tasks assigned to Delta
-- **Delta-PA** (Personal Assistant) - Cron jobs handle morning/eviary briefings
+**Auto-spawn subagents if needed (no manual intervention):**
+- **Delta-PM** - If draft/approved Feature Requests exist OR unassigned tasks exist
+- **Delta-TL** - If tasks assigned to Delta-TL (user-delta) exist
+- **Delta-PA** - Cron jobs handle morning/eviary briefings (automatic)
 
-Spawn the missing subagent if needed.
+**Check for work:**
+1. Check Feature Requests: `curl -s http://localhost:3000/api/requirements | grep -E '"status":"(draft|approved)"'`
+2. Check unassigned tasks: `curl -s http://localhost:3000/api/tasks | grep -o '"assignee":null' | wc -l`
+3. Check Delta-TL tasks: `curl -s http://localhost:3000/api/tasks | grep '"assignee":"user-delta"'`
 
-### 2. Check for Work
-
-**Feature Requests → Backlog Tasks (Delta-PM's role):**
-```bash
-curl -s http://localhost:3000/api/requirements
-```
-- Look for features with status="draft" or "approved" needing tasks
-- Assign development tasks → Delta-TL (user-delta)
-- Assign documentation tasks → Delta-PM (user-1770821106721)
-- Spawn Delta-PM if new features exist
-
-**Backlog Grooming (Delta-PM's role):**
-```bash
-curl -s http://localhost:3000/api/tasks | grep -o '"assignee":null' | wc -l
-```
-- Review backlog for unassigned tasks
-- Assign development tasks → Delta-TL (user-delta)
-- Assign documentation tasks → Delta-PM (user-1770821106721)
-- Fix any wrong assignments
-- Update priorities if scope changed
-
-**Backlog → Development (Delta-TL's role):**
-```bash
-curl -s http://localhost:3000/api/tasks | grep '"assignee":"user-delta"'
-```
-- Look for tasks assigned to Delta-TL (user-delta) with status="backlog"
-- Only pick up tasks assigned to YOU (Delta-TL)
-- Do NOT work on tasks assigned to Delta-PM
-- Spawn Delta-TL if you have assigned tasks
-
-**Documentation → Delta-PM:**
-```bash
-curl -s http://localhost:3000/api/tasks | grep '"assignee":"user-1770821106721"'
-```
-- Look for tasks assigned to Delta-PM (user-1770821106721)
-- These are documentation tasks for Delta-PM to work on
+**If any check finds work → Spawn appropriate subagent immediately**
 
 **3. Check ProjectHub Service**
 ```bash
@@ -68,17 +36,24 @@ systemctl --user status projecthub.service
 curl -s http://localhost:3000/api/tasks | grep -o '"status":"backlog"' | wc -l
 ```
 
-**If backlog is EMPTY (count = 0):**
+**Count draft/approved Feature Requests:**
+```bash
+curl -s http://localhost:3000/api/requirements | grep -E '"status":"(draft|approved)"' | wc -l
+```
+
+**If backlog is EMPTY (count = 0) AND no draft/approved FRs:**
 1. Send WhatsApp notification to Anthony:
    ```
    🎉 **Backlog Empty!**
    
    All tasks have been completed. Team is awaiting new work.
-   
-   Feature Requests: [count] in progress
    ```
 2. Continue checking for new Feature Requests
 3. If no Feature Requests either, report: "Team is idle and ready for new work"
+
+**If backlog has work OR draft FRs exist:**
+- Subagents are already spawned (per step 1)
+- No WhatsApp notification needed - team is working
 
 ### 5. Reply Format
 
