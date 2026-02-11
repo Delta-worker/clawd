@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clawd Kanban</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #1f2940;
+            --accent: #4a9eff;
+            --accent-hover: #6bb3ff;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --border: #2d3748;
+            --backlog: #6b7280;
+            --in-progress: #f59e0b;
+            --done: #10b981;
+            --request: #8b5cf6;
+            --project: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        button.secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+
+        button.secondary:hover {
+            background: var(--border);
+        }
+
+        .board {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            min-height: calc(100vh - 70px);
+        }
+
+        .column {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            min-width: 320px;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 100px);
+        }
+
+        .column-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .column-count {
+            background: var(--bg-card);
+            padding: 0.125rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .column[data-status="backlog"] .status-dot { background: var(--backlog); }
+        .column[data-status="in-progress"] .status-dot { background: var(--in-progress); }
+        .column[data-status="done"] .status-dot { background: var(--done); }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .column-cards {
+            padding: 0.75rem;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: grab;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--border);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .card-title {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .card-tag {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .card-tag.request {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--request);
+        }
+
+        .card-tag.project {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--project);
+        }
+
+        .card-date {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .card-actions {
+            display: none;
+            gap: 0.25rem;
+        }
+
+        .card:hover .card-actions {
+            display: flex;
+        }
+
+        .card-actions button {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .card-actions button:hover {
+            color: var(--text-primary);
+            background: var(--border);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(74, 158, 255, 0.1);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 480px;
+            border: 1px solid var(--border);
+        }
+
+        .modal h2 {
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🐾 Clawd Kanban</h1>
+        <div class="header-actions">
+            <button class="secondary" onclick="exportData()">Export</button>
+            <button class="secondary" onclick="importData()">Import</button>
+            <button onclick="openModal()">+ Add Task</button>
+        </div>
+    </header>
+
+    <div class="board">
+        <div class="column" data-status="backlog">
+            <div class="column-header">
+                <span class="column-title">
+                    <span class="status-dot"></span>
+                    Backlog
+                </span>
+                <span class="column-count">0</span>
+            </div>
+            <div class="column-cards" data-status="backlog"></div>
+        </div>
+
+        <div class="column" data-status="in-progress">
+            <div class="column-header">
+                <span class="column-title">
+                    <span class="status-dot"></span>
+                    In Progress
+                </span>
+                <span class="column-count">0</span>
+            </div>
+            <div class="column-cards" data-status="in-progress"></div>
+        </div>
+
+        <div class="column" data-status="done">
+            <div class="column-header">
+                <span class="column-title">
+                    <span class="status-dot"></span>
+                    Done
+                </span>
+                <span class="column-count">0</span>
+            </div>
+            <div class="column-cards" data-status="done"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <h2 id="modal-title">Add Task</h2>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" required placeholder="Task title">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" placeholder="What needs to be done?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="type">Type</label>
+                    <select id="type">
+                        <option value="request">Request (from Anthony)</option>
+                        <option value="project">Project (ongoing)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="backlog">Backlog</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="done">Done</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data store
+        let tasks = [];
+
+        // Load from server
+        async function loadTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                tasks = await res.json();
+                render();
+            } catch (e) {
+                console.error('Failed to load tasks:', e);
+                // Fallback to localStorage
+                const stored = localStorage.getItem('clawd-kanban');
+                if (stored) {
+                    tasks = JSON.parse(stored);
+                } else {
+                    // Initial tasks from setup
+                    tasks = [
+                        {
+                            id: generateId(),
+                            title: 'Set up Brave Search API',
+                            description: 'Configure API key and test search functionality',
+                            type: 'request',
+                            status: 'done',
+                            created: '2026-02-06T08:00:00.000Z',
+                            completed: '2026-02-06T10:30:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Configure WhatsApp channel',
+                            description: 'Link WhatsApp number and test messaging',
+                            type: 'request',
+                            status: 'done',
+                            created: '2026-02-06T08:00:00.000Z',
+                            completed: '2026-02-06T11:00:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Create Daily Morning Brief cron job',
+                            description: 'Automated morning news digest with fresh search results',
+                            type: 'project',
+                            status: 'done',
+                            created: '2026-02-06T08:00:00.000Z',
+                            completed: '2026-02-06T14:00:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Create Update Kanban Board cron job',
+                            description: 'Automated kanban updates based on daily memory',
+                            type: 'project',
+                            status: 'done',
+                            created: '2026-02-06T08:00:00.000Z',
+                            completed: '2026-02-06T14:30:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Fix cron jobs to use isolated sessions',
+                            description: 'Prevent cron jobs from polluting main session history',
+                            type: 'project',
+                            status: 'done',
+                            created: '2026-02-06T08:00:00.000Z',
+                            completed: '2026-02-06T15:00:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Improve morning brief search filtering',
+                            description: 'Use freshness: "pd" parameter to only show past 24h results',
+                            type: 'project',
+                            status: 'done',
+                            created: '2026-02-06T15:30:00.000Z',
+                            completed: '2026-02-07T08:00:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Set up guidelines to limit token usage',
+                            description: 'Create best practices for efficient token management',
+                            type: 'project',
+                            status: 'backlog',
+                            created: '2026-02-06T15:30:00.000Z'
+                        },
+                        {
+                            id: generateId(),
+                            title: 'Refine WhatsApp communication guidelines',
+                            description: 'Clarified with Anthony: only send actual deliverables or genuine alerts via WhatsApp, keep internal status messages local',
+                            type: 'request',
+                            status: 'done',
+                            created: '2026-02-08T09:00:00.000Z',
+                            completed: '2026-02-08T09:22:00.000Z'
+                        }
+                    ];
+                    save();
+                }
+                render();
+            }
+        }
+
+        // Generate unique ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+        }
+
+        // Save to server (and localStorage as backup)
+        async function save() {
+            localStorage.setItem('clawd-kanban', JSON.stringify(tasks));
+            try {
+                await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tasks)
+                });
+            } catch (e) {
+                console.error('Failed to save to server:', e);
+            }
+        }
+
+        // Render all tasks
+        function render() {
+            document.querySelectorAll('.column-cards').forEach(col => {
+                col.innerHTML = '';
+            });
+
+            const counts = { 'backlog': 0, 'in-progress': 0, 'done': 0 };
+
+            tasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.draggable = true;
+                card.dataset.id = task.id;
+                card.innerHTML = `
+                    <div class="card-title">${escapeHtml(task.title)}</div>
+                    ${task.description ? `<div class="card-description">${escapeHtml(task.description)}</div>` : ''}
+                    <div class="card-meta">
+                        <span class="card-tag ${task.type}">${task.type === 'request' ? 'Request' : 'Project'}</span>
+                        <span class="card-date">${formatDate(task.created)}</span>
+                        <div class="card-actions">
+                            <button onclick="editTask('${task.id}')">Edit</button>
+                            <button onclick="deleteTask('${task.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+
+                // Drag events
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+
+                const column = document.querySelector(`.column-cards[data-status="${task.status}"]`);
+                if (column) {
+                    column.appendChild(card);
+                    counts[task.status]++;
+                }
+            });
+
+            // Update counts
+            Object.entries(counts).forEach(([status, count]) => {
+                const col = document.querySelector(`.column[data-status="${status}"] .column-count`);
+                if (col) col.textContent = count;
+            });
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal functions
+        function openModal(taskId = null) {
+            const modal = document.getElementById('modal');
+            const form = document.getElementById('task-form');
+            const title = document.getElementById('modal-title');
+
+            form.reset();
+            document.getElementById('task-id').value = '';
+
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    title.textContent = 'Edit Task';
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('title').value = task.title;
+                    document.getElementById('description').value = task.description || '';
+                    document.getElementById('type').value = task.type;
+                    document.getElementById('status').value = task.status;
+                }
+            } else {
+                title.textContent = 'Add Task';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function editTask(id) {
+            openModal(id);
+        }
+
+        function deleteTask(id) {
+            if (confirm('Delete this task?')) {
+                tasks = tasks.filter(t => t.id !== id);
+                save();
+                render();
+            }
+        }
+
+        // Form submission
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('task-id').value;
+            const taskData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                type: document.getElementById('type').value,
+                status: document.getElementById('status').value,
+            };
+
+            if (id) {
+                // Edit existing
+                const task = tasks.find(t => t.id === id);
+                if (task) {
+                    Object.assign(task, taskData);
+                    task.updated = new Date().toISOString();
+                }
+            } else {
+                // Create new
+                tasks.push({
+                    id: generateId(),
+                    ...taskData,
+                    created: new Date().toISOString()
+                });
+            }
+
+            save();
+            render();
+            closeModal();
+        });
+
+        // Drag and drop
+        let draggedCard = null;
+
+        function handleDragStart(e) {
+            draggedCard = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.column-cards').forEach(col => {
+                col.classList.remove('drag-over');
+            });
+            draggedCard = null;
+        }
+
+        document.querySelectorAll('.column-cards').forEach(column => {
+            column.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                column.classList.add('drag-over');
+            });
+
+            column.addEventListener('dragleave', () => {
+                column.classList.remove('drag-over');
+            });
+
+            column.addEventListener('drop', (e) => {
+                e.preventDefault();
+                column.classList.remove('drag-over');
+
+                if (draggedCard) {
+                    const taskId = draggedCard.dataset.id;
+                    const newStatus = column.dataset.status;
+                    const task = tasks.find(t => t.id === taskId);
+
+                    if (task && task.status !== newStatus) {
+                        task.status = newStatus;
+                        task.updated = new Date().toISOString();
+                        if (newStatus === 'done') {
+                            task.completed = new Date().toISOString();
+                        }
+                        save();
+                        render();
+                    }
+                }
+            });
+        });
+
+        // Export/Import
+        function exportData() {
+            const data = JSON.stringify(tasks, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `clawd-kanban-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const imported = JSON.parse(e.target.result);
+                            if (Array.isArray(imported)) {
+                                tasks = imported;
+                                save();
+                                render();
+                                alert('Imported successfully!');
+                            }
+                        } catch (err) {
+                            alert('Invalid file format');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeModal();
+            }
+        });
+
+        // Keyboard shortcut
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'n' && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                openModal();
+            }
+        });
+
+        // Initial load from server
+        loadTasks();
+    </script>
+</body>
+</html>
